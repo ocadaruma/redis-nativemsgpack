@@ -24,7 +24,7 @@ impl Primitive for Int64 {
         } else {
             let n = (0..Self::SIZE).fold(
                 0i64,
-                |a, i| a | (bytes[from + i + 1] as i64) << (i * Self::SIZE) as i64);
+                |a, i| a | (bytes[from + i + 1] as i64) << (i * 8) as i64);
             Some(Int64(n))
         }
     }
