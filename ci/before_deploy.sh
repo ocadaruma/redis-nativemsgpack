@@ -6,10 +6,10 @@ mkdir "${CRATE_NAME}-${TRAVIS_TAG}-${TARGET}"
 filename=
 case $TRAVIS_OS_NAME in
     linux)
-        filename=libredis_hyperminhash.so
+        filename=libredis_nativemsgpack.so
         ;;
     osx)
-        filename=libredis_hyperminhash.dylib
+        filename=libredis_nativemsgpack.dylib
         ;;
 esac
 

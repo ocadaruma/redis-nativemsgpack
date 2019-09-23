@@ -9,7 +9,7 @@ before_cache:
 
 env:
   global:
-    - CRATE_NAME=redis-hyperminhash
+    - CRATE_NAME=redis-nativemsgpack
 
 matrix:
   include:
@@ -55,6 +55,6 @@ deploy:
   file: $CRATE_NAME-$TRAVIS_TAG-$TARGET.tar.gz
   skip_cleanup: true
   on:
-    repo: ocadaruma/redis-hyperminhash
+    repo: ocadaruma/redis-nativemsgpack
     condition: $TRAVIS_RUST_VERSION = stable
     tags: true

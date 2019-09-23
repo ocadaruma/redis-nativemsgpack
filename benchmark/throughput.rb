@@ -35,10 +35,10 @@ end
 
 bench = Benchmarker.new(Redis.new(port: REDIS_PORT.to_i))
 
-## benchmark MH.ADD and PFADD
+## benchmark MSGPACK.UPSERTI64 and HSET
 i = 0
-bench.bench_command("MH.ADD") do |conn|
-  resp = conn.send("MH.ADD", "mh:key", i.to_s)
+bench.bench_command("MSGPACK.UPSERTI64") do |conn|
+  resp = conn.send("MSGPACK.UPSERTI64", "msgpack:key", i.to_s)
   if resp != 0 && resp != 1
     raise "Unexpected response."
   end
@@ -46,72 +46,9 @@ bench.bench_command("MH.ADD") do |conn|
 end
 
 i = 0
-bench.bench_command("PFADD") do |conn|
-  resp = conn.send("PFADD", "pf:key", i.to_s)
+bench.bench_command("HSET") do |conn|
+  resp = conn.send("HSET", "msgpack:key", "msgpack:subkey", i.to_s)
   if resp != 0 && resp != 1
-    raise "Unexpected response."
-  end
-  i += 1
-end
-
-## benchmark MH.COUNT AND PFCOUNT
-
-### to avoid cardinality cache, setup different keys
-ITERATIONS.times do |i|
-  bench.setup do |conn|
-    conn.send("MH.ADD", "mh:key#{i}", 1, 2, 3)
-    conn.send("PFADD", "pf:key#{i}", 1, 2, 3)
-  end
-end
-
-i = 0
-bench.bench_command("MH.COUNT") do |conn|
-  resp = conn.send("MH.COUNT", "mh:key#{i}")
-  if resp != 3
-    raise "Unexpected response."
-  end
-  i += 1
-end
-
-i = 0
-bench.bench_command("PFCOUNT") do |conn|
-  resp = conn.send("PFCOUNT", "pf:key#{i}")
-  if resp != 3
-    raise "Unexpected response."
-  end
-  i += 1
-end
-
-## benchmark MH.MERGE AND PFMERGE
-i = 0
-bench.bench_command("MH.MERGE") do |conn|
-  resp = conn.send("MH.MERGE", "mh:dest", "mh:key#{i}")
-  if resp != "OK"
-    raise "Unexpected response."
-  end
-  i += 1
-end
-
-i = 0
-bench.bench_command("PFMERGE") do |conn|
-  resp = conn.send("PFMERGE", "pf:dest", "pf:key#{i}")
-  if resp != "OK"
-    raise "Unexpected response."
-  end
-  i += 1
-end
-
-## benchmark MH.SIMILARITY and MH.INTERSECTION
-i = 0
-bench.bench_command("MH.SIMILARITY") do |conn|
-  resp = conn.send("MH.SIMILARITY", "mh:key0", "mh:key#{i}")
-  i += 1
-end
-
-i = 0
-bench.bench_command("MH.INTERSECTION") do |conn|
-  resp = conn.send("MH.INTERSECTION", "mh:key0", "mh:key#{i}")
-  if resp != 3
     raise "Unexpected response."
   end
   i += 1
