@@ -12,8 +12,6 @@ pub trait ByteVector: Index<usize, Output = u8> + IndexMut<usize> {
     fn memmove(&mut self, dest: usize, src: usize, len: usize);
 
     fn realloc(&self, len: usize) -> Self;
-
-    fn alloc(len: usize) -> Self;
 }
 
 pub struct MsgpackArray<T, U>
@@ -154,14 +152,24 @@ impl<T, U> MsgpackArray<T, U>
         U::write(&mut self.underlying, offset, value);
     }
 
-    pub fn new() -> Self {
-        let mut v = T::alloc(1);
+    pub fn new<F>(allocator: F) -> Self where F : FnOnce(usize) -> T {
+        let mut v = allocator(1);
         v[0] = 0x90;
+
         Self {
             underlying: v,
             element_type: PhantomData,
         }
     }
+
+//    pub fn new() -> Self {
+//        let mut v = T::alloc(1);
+//        v[0] = 0x90;
+//        Self {
+//            underlying: v,
+//            element_type: PhantomData,
+//        }
+//    }
 
     pub fn parse(underlying: T) -> Option<Self> {
         if underlying.len() < 1 {
@@ -262,10 +270,6 @@ impl ByteVector for Vec<u8> {
         }
         ret
     }
-
-    fn alloc(len: usize) -> Self {
-        vec![0u8; len]
-    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -283,7 +287,7 @@ mod tests {
 
     #[test]
     fn test_initialize() {
-        let arr: MsgpackArray<Vec<u8>, Int64> = MsgpackArray::new();
+        let arr: MsgpackArray<Vec<u8>, Int64> = MsgpackArray::new(|len| vec![0u8; len]);
         assert_eq!(arr.header(), ArrayHeader::Fix(0));
         assert_eq!(arr.underlying[0], 0x90);
     }
@@ -291,7 +295,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let result: Option<MsgpackArray<Vec<u8>, Int64>> = MsgpackArray::parse(
-            MsgpackArray::<Vec<u8>, Int64>::new().underlying);
+            MsgpackArray::<Vec<u8>, Int64>::new(|len| vec![0u8; len]).underlying);
 
         assert_eq!(result.is_some(), true);
         assert_eq!(result.unwrap().header(), ArrayHeader::Fix(0));
@@ -403,7 +407,7 @@ mod tests {
 
     #[test]
     fn test_insert_at() {
-        let mut array: MsgpackArray<Vec<u8>, Int64> = MsgpackArray::new();
+        let mut array: MsgpackArray<Vec<u8>, Int64> = MsgpackArray::new(|len| vec![0u8; len]);
         array.insert_at(0, Int64(2));
         assert_eq!(array.header(), ArrayHeader::Fix(1));
 

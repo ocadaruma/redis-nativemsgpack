@@ -1,29 +1,11 @@
 //! Redis commands implementation.
 
 use super::*;
-use dma::CByteArray;
+use dma::RedisDMA;
 use libc::{c_double, c_int, size_t, c_longlong};
 use std::slice::from_raw_parts;
 use crate::msgpack::{MsgpackArray, ByteVector};
 use crate::msgpack::SearchResult;
-
-impl ByteVector for CByteArray {
-    fn len(&self) -> usize {
-        CByteArray::len(self)
-    }
-
-    fn memmove(&mut self, dest: usize, src: usize, len: usize) {
-        unimplemented!()
-    }
-
-    fn realloc(&self, len: usize) -> Self {
-        unimplemented!()
-    }
-
-    fn alloc(len: usize) -> Self {
-        unimplemented!()
-    }
-}
 
 /// Upsert int64 to array32
 ///
@@ -82,14 +64,14 @@ pub extern "C" fn UpsertI64_RedisCommand(
 //            } else {
 //                ptr.add(idx_to_insert * 9 + 5).copy_to(ptr.add((idx_to_insert + 1) * 9 + 5),
 //                                                       (current_arr.len - idx_to_insert) * 9);
-//                let mut carr = CByteArray::wrap(ptr, len);
+//                let mut carr = RedisDMA::wrap(ptr, len);
 //
 //                let n = current_arr.len + 1;
 //                for i in 0..4 {
 //                    carr[1 + i] = ((n >> (i * 4)) & 0xff) as u8;
 //                }
 //            }
-//            MsgpackArray::parse(CByteArray::wrap(ptr, len)).unwrap().set(idx_to_insert, ll);
+//            MsgpackArray::parse(RedisDMA::wrap(ptr, len)).unwrap().set(idx_to_insert, ll);
 //
 //            updated_count += 1;
 //        }
@@ -100,7 +82,6 @@ pub extern "C" fn UpsertI64_RedisCommand(
 //
 //        RedisModule_ReplyWithLongLong(ctx, if updated_count > 0 { 1 } else { 0 })
 //    }
-
     unimplemented!()
 }
 
@@ -137,11 +118,11 @@ fn open_rw(ctx: *mut RedisModuleCtx, string: *mut RedisModuleString) -> Key {
     }
 }
 
-fn string_dma(key: *mut RedisModuleKey) -> CByteArray {
+fn string_dma(key: *mut RedisModuleKey) -> RedisDMA {
     let mut len: size_t = 0;
     unsafe {
         let ptr = RedisModule_StringDMA(key, &mut len, REDISMODULE_WRITE);
-        CByteArray::wrap(ptr, len)
+        RedisDMA::wrap(key, ptr, len)
     }
 }
 
