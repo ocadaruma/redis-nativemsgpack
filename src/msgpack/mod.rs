@@ -20,8 +20,8 @@ pub struct MsgpackArray<T>
     underlying: T,
 }
 
-impl<T, U> MsgpackArray<T>
-    where T : ByteVector, U : Primitive {
+impl<T> MsgpackArray<T>
+    where T : ByteVector {
 
     pub fn len(&self) -> usize {
         match self.underlying[0] {
@@ -32,7 +32,7 @@ impl<T, U> MsgpackArray<T>
         }
     }
 
-    pub fn get(&self, index: usize) -> Option<U> {
+    pub fn get<U : Primitive>(&self, index: usize) -> Option<U> {
         let len = self.len();
         if len <= index {
             return None;
@@ -46,7 +46,7 @@ impl<T, U> MsgpackArray<T>
         U::read(&self.underlying, offset)
     }
 
-    pub fn set(&mut self, index: usize, value: U) {
+    pub fn set<U : Primitive>(&mut self, index: usize, value: U) {
         let len = self.len();
         if len <= index {
             return;
@@ -68,12 +68,12 @@ impl<T, U> MsgpackArray<T>
         }
     }
 
-    pub fn parse(underlying: T) -> Option<Self> {
+    pub fn parse<U : Primitive>(underlying: T) -> Option<Self> {
         if underlying.len() < 1 {
             return None;
         }
         match underlying[0] {
-            b@(0x90..=0x9f) => (b - 0x90) as usize,
+            b@(0x90..=0x9f) => {},
             0xdc => {
                 if underlying.len() < 3 {
                     return None;
@@ -100,32 +100,40 @@ impl<T, U> MsgpackArray<T>
         })
     }
 
-    pub fn binarysearch(&self, element: U) -> SearchResult {
-        if self.len < 1 {
+    pub fn binarysearch<U : Primitive>(&self, element: U) -> SearchResult {
+        if self.len() < 1 {
             SearchResult::NotFound(0)
         } else {
-            self._binarysearch(element, 0, self.len - 1)
+            self._binarysearch(element, 0, self.len() - 1)
         }
     }
 
-    fn _binarysearch(&self, element: i64, start: usize, end: usize) -> SearchResult {
+    fn _binarysearch<U : Primitive>(&self, element: U, start: usize, end: usize) -> SearchResult {
         if end - start < 1 {
-            if self.get(start) == element {
+            if self.get::<U>(start).map_or_else(|| false, |e| e == element) {
                 SearchResult::Found(start)
             } else {
-                SearchResult::NotFound(if self.get(start) < element { start + 1 } else { start })
+                SearchResult::NotFound(if self.get::<U>(start).map_or_else(|| false,|e| e < element) {
+                    start + 1
+                } else {
+                    start
+                })
             }
         } else if end - start < 2 {
-            if self.get(start) == element {
+            if (self.get::<U>(start)).map_or_else(|| false, |e| e == element) {
                 SearchResult::Found(start)
-            } else if self.get(end) == element {
+            } else if self.get::<U>(end).map_or_else(|| false, |e| e == element) {
                 SearchResult::Found(end)
             } else {
-                SearchResult::NotFound(if self.get(start) < element { end } else { start })
+                SearchResult::NotFound(if self.get::<U>(start).map_or_else(|| false, |e| e < element) {
+                    end
+                } else {
+                    start
+                })
             }
         } else {
             let pivot = (start + end) / 2;
-            if element < self.get(pivot) {
+            if self.get::<U>(pivot).map_or_else(|| false, |e| e > element) {
                 self._binarysearch(element, start, pivot)
             } else {
                 self._binarysearch(element, pivot, end)
@@ -173,28 +181,30 @@ pub enum SearchResult {
 mod tests {
     use super::SearchResult::*;
     use super::MsgpackArray;
+    use super::format::*;
 
     #[test]
     fn test_initialize() {
         let arr: MsgpackArray<Vec<u8>> = MsgpackArray::new();
         assert_eq!(arr.len(), 0);
-        assert_eq!(arr.get(0), Some(0x90));
+        assert_eq!(arr.underlying[0], 0x90);
     }
 
-//    #[test]
-//    fn test_parse() {
-//        let result = MsgpackArray::parse(MsgpackArray::initialize(vec![0u8; 5]));
-//
-//        assert_eq!(result.is_some(), true);
-//        assert_eq!(result.unwrap().len, 0);
-//
-//        let result = MsgpackArray::parse(MsgpackArray::initialize(vec![0u8; 23]));
-//
-//        assert_eq!(result.is_some(), true);
-//        assert_eq!(result.unwrap().len, 2);
-//
-//        assert_eq!(MsgpackArray::parse(vec![0u8; 5]).is_none(), true);
-//    }
+    #[test]
+    fn test_parse() {
+        let result: Option<MsgpackArray<Vec<u8>>> = MsgpackArray::parse::<Int64>(MsgpackArray::new().underlying);
+
+        assert_eq!(result.is_some(), true);
+        assert_eq!(result.unwrap().len(), 0);
+
+        let v = vec![0x92u8, 0xd3, 0, 0, 0, 0, 0, 0, 0, 0, 0xd3, 0, 0, 0, 0, 0, 0, 0, 0];
+        let result = MsgpackArray::parse::<Int64>(v);
+
+        assert_eq!(result.is_some(), true);
+        assert_eq!(result.unwrap().len(), 2);
+
+        assert_eq!(MsgpackArray::parse::<Int64>(vec![0u8; 5]).is_none(), true);
+    }
 //
 //    #[test]
 //    fn test_index() {

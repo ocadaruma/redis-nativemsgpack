@@ -2,16 +2,17 @@ use std::mem::size_of;
 use super::ByteVector;
 
 /// Represents msgpack primitive
-pub trait Primitive {
+pub trait Primitive where Self : Sized + Ord {
     const FIRST_BYTE: u8;
     const SIZE: usize;
 
-    fn read<T : ByteVector>(bytes: &T, from: usize) -> Self;
+    fn read<T : ByteVector>(bytes: &T, from: usize) -> Option<Self>;
 
     fn write<T : ByteVector>(bytes: &mut T, from: usize, value: Self);
 }
 
-pub struct Int64(i64);
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq)]
+pub struct Int64(pub i64);
 
 impl Primitive for Int64 {
     const FIRST_BYTE: u8 = 0xd3;
