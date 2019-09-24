@@ -1,3 +1,3 @@
 # redis-nativemsgpack
 
-Provides space-efficient set operations backed by msgpack for Redis.
+A Redis module provides space-efficient set operations backed by msgpack.
