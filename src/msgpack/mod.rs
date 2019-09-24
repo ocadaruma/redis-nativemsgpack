@@ -69,11 +69,12 @@ impl<T, U> MsgpackArray<T, U>
             b@(0x90..=0x9f) =>
                 ArrayHeader::Fix((b - 0x90) as usize),
             0xdc => {
-                let c = (0..2usize).fold(0, |a, i| a | ((self.underlying[1 + i] as usize) << (i * 8)));
-                ArrayHeader::Array16(c)
+                ArrayHeader::Array16(
+                    (0..2usize).fold(0, |a, i| a | ((self.underlying[1 + i] as usize) << ((1 - i) * 8)))
+                )
             },
             _ => ArrayHeader::Array32(
-                (0..4usize).fold(0, |a, i| a | ((self.underlying[1 + i] as usize) << (i * 8)))
+                (0..4usize).fold(0, |a, i| a | ((self.underlying[1 + i] as usize) << ((3 - i) * 8)))
             ),
         }
     }
@@ -109,15 +110,15 @@ impl<T, U> MsgpackArray<T, U>
             ArrayHeader::Fix(n) => self.underlying[0] = 0x90 + n as u8,
             ArrayHeader::Array16(n) => {
                 self.underlying[0] = 0xdc;
-                self.underlying[1] = (n & 0xff) as u8;
-                self.underlying[2] = ((n >> 8) & 0xff) as u8;
+                self.underlying[1] = ((n >> 8) & 0xff) as u8;
+                self.underlying[2] = (n & 0xff) as u8;
             },
             ArrayHeader::Array32(n) => {
                 self.underlying[0] = 0xdd;
-                self.underlying[1] = (n & 0xff) as u8;
-                self.underlying[2] = ((n >> 8) & 0xff) as u8;
-                self.underlying[3] = ((n >> 16) & 0xff) as u8;
-                self.underlying[4] = ((n >> 24) & 0xff) as u8;
+                self.underlying[1] = ((n >> 24) & 0xff) as u8;
+                self.underlying[2] = ((n >> 16) & 0xff) as u8;
+                self.underlying[3] = ((n >> 8) & 0xff) as u8;
+                self.underlying[4] = (n & 0xff) as u8;
             },
         }
 
@@ -181,7 +182,7 @@ impl<T, U> MsgpackArray<T, U>
                 if underlying.len() < 3 {
                     return None;
                 }
-                let len = (0..2usize).fold(0, |a, i| a | ((underlying[1 + i] as usize) << (i * 8)));
+                let len = (0..2usize).fold(0, |a, i| a | ((underlying[1 + i] as usize) << ((1 - i) * 8)));
                 if underlying.len() != 3 + (U::SIZE + 1) * len {
                     return None;
                 }
@@ -190,7 +191,7 @@ impl<T, U> MsgpackArray<T, U>
                 if underlying.len() < 5 {
                     return None;
                 }
-                let len = (0..4usize).fold(0, |a, i| a | ((underlying[1 + i] as usize) << (i * 8)));
+                let len = (0..4usize).fold(0, |a, i| a | ((underlying[1 + i] as usize) << ((3 - i) * 8)));
                 if underlying.len() != 5 + (U::SIZE + 1) * len {
                     return None;
                 }
@@ -322,7 +323,7 @@ mod tests {
         arr.set(0, Int64(123456789));
         assert_eq!(arr.get(0), Some(Int64(123456789)));
 
-        let mut v = vec![0xdc, 100u8, 0];
+        let mut v = vec![0xdc, 0, 100u8];
         for i in 0..100 {
             v.push(0xd3);
             for j in 0..8 { v.push(0); }
