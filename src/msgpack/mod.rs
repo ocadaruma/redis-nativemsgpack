@@ -216,13 +216,13 @@ impl<T, U> MsgpackArray<T, U>
 
     fn _binarysearch(&self, element: U, start: usize, end: usize) -> SearchResult {
         if end - start < 1 {
-            if self.get(start).map_or_else(|| false, |e| e == element) {
-                SearchResult::Found(start)
+            if self.get(end).map_or_else(|| false, |e| e == element) {
+                SearchResult::Found(end)
             } else {
-                SearchResult::NotFound(if self.get(start).map_or_else(|| false,|e| e < element) {
-                    start + 1
+                SearchResult::NotFound(if self.get(end).map_or_else(|| false,|e| e < element) {
+                    end + 1
                 } else {
-                    start
+                    end
                 })
             }
         } else if end - start < 2 {
@@ -231,10 +231,12 @@ impl<T, U> MsgpackArray<T, U>
             } else if self.get(end).map_or_else(|| false, |e| e == element) {
                 SearchResult::Found(end)
             } else {
-                SearchResult::NotFound(if self.get(start).map_or_else(|| false, |e| e < element) {
-                    end
-                } else {
+                SearchResult::NotFound(if self.get(end).map_or_else(|| false, |e| e < element) {
+                    end + 1
+                } else if self.get(start).map_or_else(|| false, |e| element < e) {
                     start
+                } else {
+                    end
                 })
             }
         } else {
@@ -404,6 +406,36 @@ mod tests {
         let mut v = vec![0x90];
         let arr = MsgpackArray::parse(v).unwrap();
         assert_eq!(arr.binarysearch(Int64(8)), NotFound(0));
+    }
+
+    #[test]
+    fn test_binarysearch_first() {
+        let mut array: MsgpackArray<Vec<u8>, Int64> = MsgpackArray::new(|len| vec![0u8; len]);
+        assert_eq!(array.binarysearch(Int64(3)), NotFound(0));
+
+        array.insert_at(0, Int64(3));
+        assert_eq!(array.binarysearch(Int64(2)), NotFound(0));
+
+        array.insert_at(0, Int64(2));
+        assert_eq!(array.binarysearch(Int64(1)), NotFound(0));
+
+        array.insert_at(0, Int64(1));
+        assert_eq!(array.binarysearch(Int64(1)), Found(0));
+    }
+
+    #[test]
+    fn test_binarysearch_last() {
+        let mut array: MsgpackArray<Vec<u8>, Int64> = MsgpackArray::new(|len| vec![0u8; len]);
+        assert_eq!(array.binarysearch(Int64(1)), NotFound(0));
+
+        array.insert_at(0, Int64(1));
+        assert_eq!(array.binarysearch(Int64(2)), NotFound(1));
+
+        array.insert_at(1, Int64(2));
+        assert_eq!(array.binarysearch(Int64(3)), NotFound(2));
+
+        array.insert_at(2, Int64(3));
+        assert_eq!(array.binarysearch(Int64(3)), Found(2));
     }
 
     #[test]
