@@ -1,5 +1,5 @@
-use crate::msgpack::{ByteVector, UnitResult};
 use super::*;
+use crate::msgpack::{ByteVector, UnitResult};
 use libc::{c_int, size_t};
 use std::ops::{Index, IndexMut};
 
@@ -18,7 +18,9 @@ impl ByteVector for RedisDMA {
 
     fn memmove(&mut self, dest: usize, src: usize, len: usize) {
         unsafe {
-            self.underlying.add(src).copy_to(self.underlying.add(dest), len)
+            self.underlying
+                .add(src)
+                .copy_to(self.underlying.add(dest), len)
         }
     }
 
@@ -43,16 +45,19 @@ impl ByteVector for RedisDMA {
 
 impl RedisDMA {
     pub fn wrap(key: *mut RedisModuleKey, ptr: *mut u8, len: size_t) -> Self {
-        RedisDMA { key, underlying: ptr, len, }
+        RedisDMA {
+            key,
+            underlying: ptr,
+            len,
+        }
     }
 
     pub fn offset(&self, offset: size_t) -> Self {
         Self::wrap(
             self.key,
-            unsafe {
-                self.underlying.add(offset)
-            },
-            self.len - offset)
+            unsafe { self.underlying.add(offset) },
+            self.len - offset,
+        )
     }
 
     pub fn len(&self) -> usize {
@@ -64,17 +69,13 @@ impl Index<usize> for RedisDMA {
     type Output = u8;
 
     fn index(&self, index: usize) -> &Self::Output {
-        unsafe {
-            &*self.underlying.add(index)
-        }
+        unsafe { &*self.underlying.add(index) }
     }
 }
 
 impl IndexMut<usize> for RedisDMA {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        unsafe {
-            &mut *self.underlying.add(index)
-        }
+        unsafe { &mut *self.underlying.add(index) }
     }
 }
 

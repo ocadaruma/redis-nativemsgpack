@@ -1,12 +1,12 @@
 //! Redis commands implementation.
 
 use super::*;
-use dma::RedisDMA;
-use libc::{c_double, c_int, size_t, c_longlong};
-use std::slice::from_raw_parts;
-use crate::msgpack::{MsgpackArray, ByteVector};
-use crate::msgpack::SearchResult;
 use crate::msgpack::format::Int64;
+use crate::msgpack::SearchResult;
+use crate::msgpack::{ByteVector, MsgpackArray};
+use dma::RedisDMA;
+use libc::{c_double, c_int, c_longlong, size_t};
+use std::slice::from_raw_parts;
 
 /// Upsert int64 to array32
 ///
@@ -16,8 +16,8 @@ use crate::msgpack::format::Int64;
 pub extern "C" fn UpsertI64_RedisCommand(
     ctx: *mut RedisModuleCtx,
     argv: *mut *mut RedisModuleString,
-    argc: c_int) -> c_int {
-
+    argc: c_int,
+) -> c_int {
     unsafe {
         RedisModule_AutoMemory(ctx);
 
@@ -47,25 +47,25 @@ pub extern "C" fn UpsertI64_RedisCommand(
         } else {
             array = match MsgpackArray::parse(string_dma(key)) {
                 None => return reply_wrong_type(ctx),
-                Some(arr) => arr
+                Some(arr) => arr,
             }
         }
 
         let mut updated_count = 0;
         for i in 2..argc {
-            let mut ll  = 0;
+            let mut ll = 0;
             if RedisModule_StringToLongLong(*argv.add(i as usize), &mut ll) != REDISMODULE_OK {
                 return REDISMODULE_ERR;
             }
 
             let idx_to_insert = match array.binarysearch(Int64(ll)) {
                 SearchResult::Found(_) => continue,
-                SearchResult::NotFound(idx) => idx
+                SearchResult::NotFound(idx) => idx,
             };
 
             match array.insert_at(idx_to_insert, Int64(ll)) {
                 Err(err) => return err,
-                _ => {},
+                _ => {}
             };
 
             updated_count += 1;
@@ -87,8 +87,8 @@ pub extern "C" fn UpsertI64_RedisCommand(
 pub extern "C" fn DelI64_RedisCommand(
     ctx: *mut RedisModuleCtx,
     argv: *mut *mut RedisModuleString,
-    argc: c_int) -> c_int {
-
+    argc: c_int,
+) -> c_int {
     unimplemented!()
 }
 
@@ -123,12 +123,12 @@ fn string_dma(key: *mut RedisModuleKey) -> RedisDMA {
 fn reply_wrong_type(ctx: *mut RedisModuleCtx) -> c_int {
     unsafe {
         RedisModule_ReplyWithError(
-            ctx, "WRONGTYPE Key is not a valid msgpack string value.\0".as_ptr())
+            ctx,
+            "WRONGTYPE Key is not a valid msgpack string value.\0".as_ptr(),
+        )
     }
 }
 
 fn reply_ok(ctx: *mut RedisModuleCtx) -> c_int {
-    unsafe {
-        RedisModule_ReplyWithSimpleString(ctx, "OK\0".as_ptr())
-    }
+    unsafe { RedisModule_ReplyWithSimpleString(ctx, "OK\0".as_ptr()) }
 }

@@ -1,14 +1,17 @@
-use std::mem::size_of;
 use super::ByteVector;
+use std::mem::size_of;
 
 /// Represents msgpack primitive
-pub trait Primitive where Self : Sized + Ord {
+pub trait Primitive
+where
+    Self: Sized + Ord,
+{
     const FIRST_BYTE: u8;
     const SIZE: usize;
 
-    fn read<T : ByteVector>(bytes: &T, from: usize) -> Option<Self>;
+    fn read<T: ByteVector>(bytes: &T, from: usize) -> Option<Self>;
 
-    fn write<T : ByteVector>(bytes: &mut T, from: usize, value: Self);
+    fn write<T: ByteVector>(bytes: &mut T, from: usize, value: Self);
 }
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq)]
@@ -22,9 +25,9 @@ impl Primitive for Int64 {
         if bytes[from] != Self::FIRST_BYTE {
             None
         } else {
-            let n = (0..Self::SIZE).fold(
-                0i64,
-                |a, i| a | (bytes[from + i + 1] as i64) << ((Self::SIZE - 1 - i) * 8) as i64);
+            let n = (0..Self::SIZE).fold(0i64, |a, i| {
+                a | (bytes[from + i + 1] as i64) << ((Self::SIZE - 1 - i) * 8) as i64
+            });
             Some(Int64(n))
         }
     }

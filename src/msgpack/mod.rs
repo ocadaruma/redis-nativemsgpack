@@ -1,13 +1,16 @@
 pub mod format;
 
-use std::ops::{Index, IndexMut};
-use std::marker::PhantomData;
 use format::*;
+use std::marker::PhantomData;
+use std::ops::{Index, IndexMut};
 
 pub type UnitResult<AllocErr> = Result<(), AllocErr>;
 
 /// Abstraction layer for byte vector
-pub trait ByteVector: Index<usize, Output = u8> + IndexMut<usize> where Self: Sized {
+pub trait ByteVector: Index<usize, Output = u8> + IndexMut<usize>
+where
+    Self: Sized,
+{
     type AllocErr;
 
     fn len(&self) -> usize;
@@ -18,7 +21,10 @@ pub trait ByteVector: Index<usize, Output = u8> + IndexMut<usize> where Self: Si
 }
 
 pub struct MsgpackArray<T, U>
-    where T : ByteVector, U : Primitive {
+where
+    T: ByteVector,
+    U: Primitive,
+{
     underlying: T,
     element_type: PhantomData<U>,
 }
@@ -55,7 +61,7 @@ impl ArrayHeader {
         }
     }
 
-    pub fn total_bytes<U : Primitive>(&self) -> usize {
+    pub fn total_bytes<U: Primitive>(&self) -> usize {
         match self {
             ArrayHeader::Fix(n) => *n * (U::SIZE + 1) + 1,
             ArrayHeader::Array16(n) => *n * (U::SIZE + 1) + 2 + 1,
@@ -65,20 +71,19 @@ impl ArrayHeader {
 }
 
 impl<T, U> MsgpackArray<T, U>
-    where T : ByteVector, U : Primitive {
-
+where
+    T: ByteVector,
+    U: Primitive,
+{
     pub fn header(&self) -> ArrayHeader {
         match self.underlying[0] {
-            b@(0x90..=0x9f) =>
-                ArrayHeader::Fix((b - 0x90) as usize),
-            0xdc => {
-                ArrayHeader::Array16(
-                    (0..2usize).fold(0, |a, i| a | ((self.underlying[1 + i] as usize) << ((1 - i) * 8)))
-                )
-            },
-            _ => ArrayHeader::Array32(
-                (0..4usize).fold(0, |a, i| a | ((self.underlying[1 + i] as usize) << ((3 - i) * 8)))
-            ),
+            b @ (0x90..=0x9f) => ArrayHeader::Fix((b - 0x90) as usize),
+            0xdc => ArrayHeader::Array16((0..2usize).fold(0, |a, i| {
+                a | ((self.underlying[1 + i] as usize) << ((1 - i) * 8))
+            })),
+            _ => ArrayHeader::Array32((0..4usize).fold(0, |a, i| {
+                a | ((self.underlying[1 + i] as usize) << ((3 - i) * 8))
+            })),
         }
     }
 
@@ -99,14 +104,16 @@ impl<T, U> MsgpackArray<T, U>
             self.underlying.memmove(
                 new_header.header_bytes(),
                 current_header.header_bytes(),
-                current_header.total_bytes::<U>());
+                current_header.total_bytes::<U>(),
+            );
         }
 
         if index < current_header.len() {
             self.underlying.memmove(
                 new_header.header_bytes() + (index + 1) * (U::SIZE + 1),
                 new_header.header_bytes() + index * (U::SIZE + 1),
-                (current_header.len() - index) * (U::SIZE + 1));
+                (current_header.len() - index) * (U::SIZE + 1),
+            );
         }
 
         match new_header {
@@ -115,14 +122,14 @@ impl<T, U> MsgpackArray<T, U>
                 self.underlying[0] = 0xdc;
                 self.underlying[1] = ((n >> 8) & 0xff) as u8;
                 self.underlying[2] = (n & 0xff) as u8;
-            },
+            }
             ArrayHeader::Array32(n) => {
                 self.underlying[0] = 0xdd;
                 self.underlying[1] = ((n >> 24) & 0xff) as u8;
                 self.underlying[2] = ((n >> 16) & 0xff) as u8;
                 self.underlying[3] = ((n >> 8) & 0xff) as u8;
                 self.underlying[4] = (n & 0xff) as u8;
-            },
+            }
         }
 
         self.set(index, element);
@@ -158,7 +165,10 @@ impl<T, U> MsgpackArray<T, U>
         U::write(&mut self.underlying, offset, value);
     }
 
-    pub fn new<F>(allocator: F) -> Result<Self, T::AllocErr> where F : FnOnce(usize) -> Result<T, T::AllocErr> {
+    pub fn new<F>(allocator: F) -> Result<Self, T::AllocErr>
+    where
+        F: FnOnce(usize) -> Result<T, T::AllocErr>,
+    {
         let mut v = allocator(1)?;
         v[0] = 0x90;
 
@@ -173,25 +183,29 @@ impl<T, U> MsgpackArray<T, U>
             return None;
         }
         match underlying[0] {
-            b@(0x90..=0x9f) => {},
+            b @ (0x90..=0x9f) => {}
             0xdc => {
                 if underlying.len() < 3 {
                     return None;
                 }
-                let len = (0..2usize).fold(0, |a, i| a | ((underlying[1 + i] as usize) << ((1 - i) * 8)));
+                let len = (0..2usize).fold(0, |a, i| {
+                    a | ((underlying[1 + i] as usize) << ((1 - i) * 8))
+                });
                 if underlying.len() != 3 + (U::SIZE + 1) * len {
                     return None;
                 }
-            },
+            }
             0xdd => {
                 if underlying.len() < 5 {
                     return None;
                 }
-                let len = (0..4usize).fold(0, |a, i| a | ((underlying[1 + i] as usize) << ((3 - i) * 8)));
+                let len = (0..4usize).fold(0, |a, i| {
+                    a | ((underlying[1 + i] as usize) << ((3 - i) * 8))
+                });
                 if underlying.len() != 5 + (U::SIZE + 1) * len {
                     return None;
                 }
-            },
+            }
             _ => return None,
         };
 
@@ -215,7 +229,7 @@ impl<T, U> MsgpackArray<T, U>
             if self.get(end).map_or_else(|| false, |e| e == element) {
                 SearchResult::Found(end)
             } else {
-                SearchResult::NotFound(if self.get(end).map_or_else(|| false,|e| e < element) {
+                SearchResult::NotFound(if self.get(end).map_or_else(|| false, |e| e < element) {
                     end + 1
                 } else {
                     end
@@ -281,14 +295,15 @@ pub enum SearchResult {
 
 #[cfg(test)]
 mod tests {
-    use super::ArrayHeader;
-    use super::SearchResult::*;
-    use super::MsgpackArray;
     use super::format::*;
+    use super::ArrayHeader;
+    use super::MsgpackArray;
+    use super::SearchResult::*;
 
     #[test]
     fn test_initialize() {
-        let arr: MsgpackArray<Vec<u8>, Int64> = MsgpackArray::new(|len| Ok(vec![0u8; len])).unwrap();
+        let arr: MsgpackArray<Vec<u8>, Int64> =
+            MsgpackArray::new(|len| Ok(vec![0u8; len])).unwrap();
         assert_eq!(arr.header(), ArrayHeader::Fix(0));
         assert_eq!(arr.underlying[0], 0x90);
     }
@@ -296,18 +311,26 @@ mod tests {
     #[test]
     fn test_parse() {
         let result: Option<MsgpackArray<Vec<u8>, Int64>> = MsgpackArray::parse(
-            MsgpackArray::<Vec<u8>, Int64>::new(|len| Ok(vec![0u8; len])).unwrap().underlying);
+            MsgpackArray::<Vec<u8>, Int64>::new(|len| Ok(vec![0u8; len]))
+                .unwrap()
+                .underlying,
+        );
 
         assert_eq!(result.is_some(), true);
         assert_eq!(result.unwrap().header(), ArrayHeader::Fix(0));
 
-        let v = vec![0x92u8, 0xd3, 0, 0, 0, 0, 0, 0, 0, 0, 0xd3, 0, 0, 0, 0, 0, 0, 0, 0];
+        let v = vec![
+            0x92u8, 0xd3, 0, 0, 0, 0, 0, 0, 0, 0, 0xd3, 0, 0, 0, 0, 0, 0, 0, 0,
+        ];
         let result: Option<MsgpackArray<Vec<u8>, Int64>> = MsgpackArray::parse(v);
 
         assert_eq!(result.is_some(), true);
         assert_eq!(result.unwrap().header(), ArrayHeader::Fix(2));
 
-        assert_eq!(MsgpackArray::<Vec<u8>, Int64>::parse(vec![0u8; 5]).is_none(), true);
+        assert_eq!(
+            MsgpackArray::<Vec<u8>, Int64>::parse(vec![0u8; 5]).is_none(),
+            true
+        );
     }
 
     #[test]
@@ -315,7 +338,9 @@ mod tests {
         let mut v = vec![0x9eu8];
         for i in 0..1 {
             v.push(0xd3);
-            for j in 0..8 { v.push(0); }
+            for j in 0..8 {
+                v.push(0);
+            }
         }
         let mut arr = MsgpackArray::parse(v).unwrap();
 
@@ -326,7 +351,9 @@ mod tests {
         let mut v = vec![0xdc, 0, 100u8];
         for i in 0..100 {
             v.push(0xd3);
-            for j in 0..8 { v.push(0); }
+            for j in 0..8 {
+                v.push(0);
+            }
         }
         let mut arr = MsgpackArray::parse(v).unwrap();
 
@@ -341,7 +368,9 @@ mod tests {
         let mut v = vec![0x96];
         for i in 0..6 {
             v.push(0xd3);
-            for j in 0..8 { v.push(0); }
+            for j in 0..8 {
+                v.push(0);
+            }
         }
         let mut arr = MsgpackArray::parse(v).unwrap();
         arr.set(0, Int64(2));
@@ -355,7 +384,9 @@ mod tests {
         let mut v = vec![0x91];
         for i in 0..1 {
             v.push(0xd3);
-            for j in 0..8 { v.push(0); }
+            for j in 0..8 {
+                v.push(0);
+            }
         }
         let mut arr = MsgpackArray::parse(v).unwrap();
         arr.set(0, Int64(7));
@@ -364,7 +395,9 @@ mod tests {
         let mut v = vec![0x93];
         for i in 0..3 {
             v.push(0xd3);
-            for j in 0..8 { v.push(0); }
+            for j in 0..8 {
+                v.push(0);
+            }
         }
         let mut arr = MsgpackArray::parse(v).unwrap();
         arr.set(0, Int64(2));
@@ -380,7 +413,9 @@ mod tests {
         let mut v = vec![0x96];
         for i in 0..6 {
             v.push(0xd3);
-            for j in 0..8 { v.push(0); }
+            for j in 0..8 {
+                v.push(0);
+            }
         }
         let mut arr = MsgpackArray::parse(v).unwrap();
         arr.set(0, Int64(2));
@@ -394,7 +429,9 @@ mod tests {
         let mut v = vec![0x91];
         for i in 0..1 {
             v.push(0xd3);
-            for j in 0..8 { v.push(0); }
+            for j in 0..8 {
+                v.push(0);
+            }
         }
         let mut arr = MsgpackArray::parse(v).unwrap();
         arr.set(0, Int64(7));
@@ -408,7 +445,8 @@ mod tests {
 
     #[test]
     fn test_binarysearch_first() {
-        let mut array: MsgpackArray<Vec<u8>, Int64> = MsgpackArray::new(|len| Ok(vec![0u8; len])).unwrap();
+        let mut array: MsgpackArray<Vec<u8>, Int64> =
+            MsgpackArray::new(|len| Ok(vec![0u8; len])).unwrap();
         assert_eq!(array.binarysearch(Int64(3)), NotFound(0));
 
         array.insert_at(0, Int64(3));
@@ -423,7 +461,8 @@ mod tests {
 
     #[test]
     fn test_binarysearch_last() {
-        let mut array: MsgpackArray<Vec<u8>, Int64> = MsgpackArray::new(|len| Ok(vec![0u8; len])).unwrap();
+        let mut array: MsgpackArray<Vec<u8>, Int64> =
+            MsgpackArray::new(|len| Ok(vec![0u8; len])).unwrap();
         assert_eq!(array.binarysearch(Int64(1)), NotFound(0));
 
         array.insert_at(0, Int64(1));
@@ -438,11 +477,15 @@ mod tests {
 
     #[test]
     fn test_insert_at() {
-        let mut array: MsgpackArray<Vec<u8>, Int64> = MsgpackArray::new(|len| Ok(vec![0u8; len])).unwrap();
+        let mut array: MsgpackArray<Vec<u8>, Int64> =
+            MsgpackArray::new(|len| Ok(vec![0u8; len])).unwrap();
         array.insert_at(0, Int64(2));
         assert_eq!(array.header(), ArrayHeader::Fix(1));
 
-        for (i, n) in [3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47].iter().enumerate() {
+        for (i, n) in [3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47]
+            .iter()
+            .enumerate()
+        {
             array.insert_at(i + 1, Int64(*n));
         }
         assert_eq!(array.header(), ArrayHeader::Fix(15));
