@@ -33,11 +33,17 @@ pub extern "C" fn UpsertI64_RedisCommand(
 
         let mut array: MsgpackArray<RedisDMA, Int64>;
         if key_type == REDISMODULE_KEYTYPE_EMPTY {
-            array = MsgpackArray::new(|len| {
-                RedisModule_StringTruncate(key, len);
-
-                string_dma(key)
-            });
+            array = match MsgpackArray::new(|len| {
+                let ret = RedisModule_StringTruncate(key, len);
+                if ret != REDISMODULE_OK {
+                    Err(ret)
+                } else {
+                    Ok(string_dma(key))
+                }
+            }) {
+                Ok(arr) => arr,
+                Err(err) => return err,
+            };
         } else {
             array = match MsgpackArray::parse(string_dma(key)) {
                 None => return reply_wrong_type(ctx),
@@ -57,7 +63,10 @@ pub extern "C" fn UpsertI64_RedisCommand(
                 SearchResult::NotFound(idx) => idx
             };
 
-            array.insert_at(idx_to_insert, Int64(ll));
+            match array.insert_at(idx_to_insert, Int64(ll)) {
+                Err(err) => return err,
+                _ => {},
+            };
 
             updated_count += 1;
         }

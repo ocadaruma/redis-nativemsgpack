@@ -2,16 +2,19 @@ pub mod format;
 
 use std::ops::{Index, IndexMut};
 use std::marker::PhantomData;
-use std::mem::size_of;
 use format::*;
 
+pub type UnitResult<AllocErr> = Result<(), AllocErr>;
+
 /// Abstraction layer for byte vector
-pub trait ByteVector: Index<usize, Output = u8> + IndexMut<usize> {
+pub trait ByteVector: Index<usize, Output = u8> + IndexMut<usize> where Self: Sized {
+    type AllocErr;
+
     fn len(&self) -> usize;
 
     fn memmove(&mut self, dest: usize, src: usize, len: usize);
 
-    fn realloc(&self, len: usize) -> Self;
+    fn realloc(&self, len: usize) -> Result<Self, Self::AllocErr>;
 }
 
 pub struct MsgpackArray<T, U>
@@ -83,14 +86,14 @@ impl<T, U> MsgpackArray<T, U>
         unimplemented!()
     }
 
-    pub fn insert_at(&mut self, index: usize, element: U) {
+    pub fn insert_at(&mut self, index: usize, element: U) -> UnitResult<T::AllocErr> {
         let new_len = self.header().len() + 1;
 
         let current_header = self.header();
         let new_header = ArrayHeader::from_len(new_len);
 
         let new_bytes = new_header.total_bytes::<U>();
-        self.underlying = self.underlying.realloc(new_bytes);
+        self.underlying = self.underlying.realloc(new_bytes)?;
 
         if current_header.header_bytes() != new_header.header_bytes() && current_header.len() > 0 {
             self.underlying.memmove(
@@ -123,6 +126,8 @@ impl<T, U> MsgpackArray<T, U>
         }
 
         self.set(index, element);
+
+        Ok(())
     }
 
     pub fn get(&self, index: usize) -> Option<U> {
@@ -153,24 +158,15 @@ impl<T, U> MsgpackArray<T, U>
         U::write(&mut self.underlying, offset, value);
     }
 
-    pub fn new<F>(allocator: F) -> Self where F : FnOnce(usize) -> T {
-        let mut v = allocator(1);
+    pub fn new<F>(allocator: F) -> Result<Self, T::AllocErr> where F : FnOnce(usize) -> Result<T, T::AllocErr> {
+        let mut v = allocator(1)?;
         v[0] = 0x90;
 
-        Self {
+        Ok(Self {
             underlying: v,
             element_type: PhantomData,
-        }
+        })
     }
-
-//    pub fn new() -> Self {
-//        let mut v = T::alloc(1);
-//        v[0] = 0x90;
-//        Self {
-//            underlying: v,
-//            element_type: PhantomData,
-//        }
-//    }
 
     pub fn parse(underlying: T) -> Option<Self> {
         if underlying.len() < 1 {
@@ -252,6 +248,8 @@ impl<T, U> MsgpackArray<T, U>
 
 /// Vec based ByteVector impl. For unit testing purpose only.
 impl ByteVector for Vec<u8> {
+    type AllocErr = ();
+
     fn len(&self) -> usize {
         Vec::len(self)
     }
@@ -262,7 +260,7 @@ impl ByteVector for Vec<u8> {
         }
     }
 
-    fn realloc(&self, len: usize) -> Self {
+    fn realloc(&self, len: usize) -> Result<Self, Self::AllocErr> {
         let mut ret = vec![];
         for i in 0..len {
             if i < self.len() {
@@ -271,7 +269,7 @@ impl ByteVector for Vec<u8> {
                 ret.push(u8::default());
             }
         }
-        ret
+        Ok(ret)
     }
 }
 
@@ -290,7 +288,7 @@ mod tests {
 
     #[test]
     fn test_initialize() {
-        let arr: MsgpackArray<Vec<u8>, Int64> = MsgpackArray::new(|len| vec![0u8; len]);
+        let arr: MsgpackArray<Vec<u8>, Int64> = MsgpackArray::new(|len| Ok(vec![0u8; len])).unwrap();
         assert_eq!(arr.header(), ArrayHeader::Fix(0));
         assert_eq!(arr.underlying[0], 0x90);
     }
@@ -298,7 +296,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let result: Option<MsgpackArray<Vec<u8>, Int64>> = MsgpackArray::parse(
-            MsgpackArray::<Vec<u8>, Int64>::new(|len| vec![0u8; len]).underlying);
+            MsgpackArray::<Vec<u8>, Int64>::new(|len| Ok(vec![0u8; len])).unwrap().underlying);
 
         assert_eq!(result.is_some(), true);
         assert_eq!(result.unwrap().header(), ArrayHeader::Fix(0));
@@ -410,7 +408,7 @@ mod tests {
 
     #[test]
     fn test_binarysearch_first() {
-        let mut array: MsgpackArray<Vec<u8>, Int64> = MsgpackArray::new(|len| vec![0u8; len]);
+        let mut array: MsgpackArray<Vec<u8>, Int64> = MsgpackArray::new(|len| Ok(vec![0u8; len])).unwrap();
         assert_eq!(array.binarysearch(Int64(3)), NotFound(0));
 
         array.insert_at(0, Int64(3));
@@ -425,7 +423,7 @@ mod tests {
 
     #[test]
     fn test_binarysearch_last() {
-        let mut array: MsgpackArray<Vec<u8>, Int64> = MsgpackArray::new(|len| vec![0u8; len]);
+        let mut array: MsgpackArray<Vec<u8>, Int64> = MsgpackArray::new(|len| Ok(vec![0u8; len])).unwrap();
         assert_eq!(array.binarysearch(Int64(1)), NotFound(0));
 
         array.insert_at(0, Int64(1));
@@ -440,7 +438,7 @@ mod tests {
 
     #[test]
     fn test_insert_at() {
-        let mut array: MsgpackArray<Vec<u8>, Int64> = MsgpackArray::new(|len| vec![0u8; len]);
+        let mut array: MsgpackArray<Vec<u8>, Int64> = MsgpackArray::new(|len| Ok(vec![0u8; len])).unwrap();
         array.insert_at(0, Int64(2));
         assert_eq!(array.header(), ArrayHeader::Fix(1));
 

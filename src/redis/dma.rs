@@ -1,8 +1,7 @@
-use crate::msgpack::ByteVector;
-use super::RedisModuleKey;
-use libc::size_t;
+use crate::msgpack::{ByteVector, UnitResult};
+use super::*;
+use libc::{c_int, size_t};
 use std::ops::{Index, IndexMut};
-use crate::redis::{RedisModule_StringTruncate, RedisModule_StringDMA, REDISMODULE_WRITE};
 
 pub struct RedisDMA {
     key: *mut RedisModuleKey,
@@ -11,6 +10,8 @@ pub struct RedisDMA {
 }
 
 impl ByteVector for RedisDMA {
+    type AllocErr = c_int;
+
     fn len(&self) -> usize {
         RedisDMA::len(self)
     }
@@ -21,17 +22,20 @@ impl ByteVector for RedisDMA {
         }
     }
 
-    fn realloc(&self, len: usize) -> Self {
+    fn realloc(&self, len: usize) -> Result<Self, Self::AllocErr> {
         unsafe {
-            RedisModule_StringTruncate(self.key, len);
+            let ret = RedisModule_StringTruncate(self.key, len);
+            if ret == REDISMODULE_OK {
+                let mut len: size_t = 0;
+                let ptr = RedisModule_StringDMA(self.key, &mut len, REDISMODULE_WRITE);
 
-            let mut len: size_t = 0;
-            let ptr = RedisModule_StringDMA(self.key, &mut len, REDISMODULE_WRITE);
-
-            Self {
-                key: self.key,
-                underlying: ptr,
-                len,
+                Ok(Self {
+                    key: self.key,
+                    underlying: ptr,
+                    len,
+                })
+            } else {
+                Err(ret)
             }
         }
     }
