@@ -35,7 +35,7 @@ end
 
 bench = Benchmarker.new(Redis.new(port: REDIS_PORT.to_i))
 
-## benchmark MSGPACK.UPSERTI64 and HSET
+## benchmark MSGPACK.UPSERTI64 and SADD
 i = 0
 bench.bench_command("MSGPACK.UPSERTI64") do |conn|
   resp = conn.send("MSGPACK.UPSERTI64", "msgpack:key", i)
@@ -46,8 +46,8 @@ bench.bench_command("MSGPACK.UPSERTI64") do |conn|
 end
 
 i = 0
-bench.bench_command("HSET") do |conn|
-  resp = conn.send("HSET", "hset:key", i, "0")
+bench.bench_command("SADD") do |conn|
+  resp = conn.send("SADD", "set:key", i)
   if resp != 0 && resp != 1
     raise "Unexpected response."
   end

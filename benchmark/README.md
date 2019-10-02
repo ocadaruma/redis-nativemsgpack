@@ -2,26 +2,26 @@
 
 Rough benchmark using ruby and 'redis' gem.
 
-Environment: iMac 2019, 3.6GHz Corei9, 16GB DDR4
+Environment: Intel(R) Core(TM) i7-7600U CPU @ 2.80GHz 24GB RAM
 
 ```
 $ cd benchmark
 $ bundle install --path=vendor/bundle 
 $ bundle exec ruby throughput.rb
 MSGPACK.UPSERTI64
-Took total of: 3.733351 s
-Per iteration: 3.733351e-05 s (0.03733351 ms)
+Took total of: 4.347949127 s
+Per iteration: 4.347949127e-05 s (0.04347949127 ms)
 
-HSET
-Took total of: 3.691707 s
-Per iteration: 3.6917070000000004e-05 s (0.03691707 ms)
+SADD
+Took total of: 4.076891604 s
+Per iteration: 4.076891604e-05 s (0.04076891604 ms)
 ```
 
 memory usage:
 
 ```
 redis-cli> memory usage msgpack:key
-(integer) 1142835
-redis-cli> memory usage hset:key
-(integer) 4448722
+(integer) 1142837
+redis-cli> memory usage set:key
+(integer) 4673011
 ```
