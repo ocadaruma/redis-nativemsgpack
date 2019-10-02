@@ -491,6 +491,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_insert_at() {
         let mut array: MsgpackArray<Vec<u8>, Int64> =
             MsgpackArray::new(|len| Ok(vec![0u8; len])).unwrap();
