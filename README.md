@@ -54,7 +54,7 @@ redis-cli> EVAL 'return cmsgpack.unpack(redis.call("GET", KEYS[1]))' 1 key
 
 ## Memory usage
 
-2 or 3 times compact than Redis Sets data type.
+Compact than Redis Sets data type.
 
 ```
 $ for i in `seq 10000`; do redis-cli -p 6380 MSGPACK.UPSERTI64 msgpack:key $i > /dev/null; done
