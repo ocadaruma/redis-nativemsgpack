@@ -1,5 +1,5 @@
 use super::*;
-use crate::msgpack::{ByteVector, UnitResult};
+use crate::msgpack::ByteVector;
 use libc::{c_int, size_t};
 use std::ops::{Index, IndexMut};
 
@@ -52,14 +52,6 @@ impl RedisDMA {
         }
     }
 
-    pub fn offset(&self, offset: size_t) -> Self {
-        Self::wrap(
-            self.key,
-            unsafe { self.underlying.add(offset) },
-            self.len - offset,
-        )
-    }
-
     pub fn len(&self) -> usize {
         self.len
     }
@@ -78,32 +70,3 @@ impl IndexMut<usize> for RedisDMA {
         unsafe { &mut *self.underlying.add(index) }
     }
 }
-
-//#[cfg(test)]
-//mod tests {
-//    use crate::redis::dma::RedisDMA;
-//
-//    #[test]
-//    fn test_new() {
-//        let mut arr = [0u8; 10];
-//
-//        let dma = RedisDMA::wrap(arr.as_mut_ptr(), arr.len());
-//
-//        assert_eq!(dma.len, 10);
-//    }
-//
-//    #[test]
-//    fn test_index() {
-//        let mut arr = [2u8, 3, 5, 7, 11];
-//        let mut dma = RedisDMA::wrap(arr.as_mut_ptr(), arr.len());
-//
-//        assert_eq!(dma.len, 5);
-//        for i in 0..arr.len() {
-//            assert_eq!(dma[i], arr[i]);
-//        }
-//
-//        dma[3] = 42;
-//        assert_eq!(dma[3], 42);
-//        assert_eq!(arr[3], 42);
-//    }
-//}

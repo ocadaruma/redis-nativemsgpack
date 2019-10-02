@@ -6,7 +6,7 @@ mod command;
 mod dma;
 
 use command::*;
-use libc::{c_double, c_int, c_longlong, size_t};
+use libc::{c_int, c_longlong, size_t};
 
 const MODULE_NAME: &str = "redis-nativemsgpack";
 const MODULE_VERSION: c_int = 1;
@@ -57,9 +57,6 @@ extern "C" {
     static RedisModule_ReplyWithLongLong:
         extern "C" fn(ctx: *mut RedisModuleCtx, ll: c_longlong) -> c_int;
 
-    static RedisModule_ReplyWithDouble:
-        extern "C" fn(ctx: *mut RedisModuleCtx, d: c_double) -> c_int;
-
     static RedisModule_StringDMA:
         extern "C" fn(key: *mut RedisModuleKey, len: *mut size_t, mode: c_int) -> *mut u8;
 
@@ -68,9 +65,6 @@ extern "C" {
 
     static RedisModule_StringToLongLong:
         extern "C" fn(str: *const RedisModuleString, ll: *mut c_longlong) -> c_int;
-
-    static RedisModule_StringPtrLen:
-        extern "C" fn(str: *const RedisModuleString, len: *mut size_t) -> *const u8;
 
     static RedisModule_OpenKey: extern "C" fn(
         ctx: *mut RedisModuleCtx,
@@ -86,9 +80,6 @@ extern "C" {
         extern "C" fn(ctx: *mut RedisModuleCtx, err: *const u8) -> c_int;
 
     static RedisModule_KeyType: extern "C" fn(kp: *mut RedisModuleKey) -> c_int;
-
-    static RedisModule_ReplyWithSimpleString:
-        extern "C" fn(ctx: *mut RedisModuleCtx, msg: *const u8) -> c_int;
 
     static RedisModule_ReplicateVerbatim: extern "C" fn(ctx: *mut RedisModuleCtx) -> c_int;
 }
